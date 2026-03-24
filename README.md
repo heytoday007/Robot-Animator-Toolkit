@@ -1,0 +1,115 @@
+# Robot Animator Toolkit
+
+Blender 插件：面向 URDF 机器人的**骨架合并、网格重绑定与动态 CSV 导出**，支持从 URDF/SMURF 导入到动画数据导出的完整流程。
+
+适用于 Blender 3.3+（推荐 4.0+）。
+
+---
+
+## 功能概览
+
+| 功能 | 说明 |
+|------|------|
+| **导入 URDF/SMURF (Phobos)** | 使用内置 Phobos 从 `.urdf` / `.smurf` / `.xacro` / `.xml` 导入机器人，自动解析 `package://` 与相对路径 mesh。 |
+| **准备 URDF 模型** | 识别选中的 Armature，将 `base_link` 设为活动对象，并**全选场景物体**，便于下一步直接清空父级。 |
+| **清空并保持变换** | **先记录当前 URDF 骨骼层级**，再断开所有选中物体的父子关系并保持世界位置；合并骨架时将按此层级重连。 |
+| **合并并重连骨架** | 将选中的多个 Armature 合并为一个，骨骼名恢复为 URDF 命名，**优先按「清空并保持变换」记录的层级**重建父子关系。 |
+| **全部骨骼欧拉角 (XYZ)** | 将当前 Armature 下所有骨骼的旋转模式设为欧拉角 (XYZ)，便于绑定与导出（避免四元数导出为 0）。 |
+| **将网格绑定到骨骼** | 按名称将场景中的 Mesh 自动挂到当前 Armature 的骨骼上，**保持世界空间位置**（与手动「父级→骨骼 保持变换」一致）。 |
+| **导出动态 CSV** | 按关节列表与帧范围导出每帧的关节旋转值到 CSV，可选**角度**或**弧度**。 |
+
+**关节列表子面板 (Dynamic CSV - Joint List)**：从骨架刷新关节、全选/全不选、勾选关节与旋转轴 (X/Y/Z)、自定义帧范围、导出单位（角度/弧度）、导出路径。
+
+---
+
+## 安装
+
+1. 将整个 **Robot Animator Toolkit** 文件夹打包为 **zip**（需包含 `__init__.py` 与 `phobos` 子文件夹）。
+2. Blender：**编辑 → 偏好设置 → 插件 → 安装**，选择该 zip（或“从文件夹安装”选该文件夹）。
+3. 在插件列表中勾选 **Robot Animator Toolkit**。
+4. 打开 3D 视图，按 **N** 打开侧边栏，切到 **RobotTools** 标签即可看到面板。
+
+**依赖**：导入 URDF 使用内置的 Phobos 子模块；STL 网格在 Blender 4.2 若内置 STL 未启用，会尝试使用 `trimesh`（可选安装）。
+
+---
+
+## 推荐使用流程
+
+1. **导入**  
+   点击 **导入 URDF/SMURF (Phobos)**，选择 `.urdf` / `.smurf` / `.xacro` 等文件。导入后得到多个 Armature 与若干 Mesh。
+
+2. **准备**  
+   点击 **准备 URDF 模型**（需先选中至少一个 Armature）。插件会识别骨架、将 base_link 设为活动对象，并**全选物体**。
+
+3. **清空父级并记录层级**  
+   直接点击 **清空并保持变换**。插件会**记录当前所有 Armature 的父子关系**，再断开父子并保持世界位置。
+
+4. **合并骨架**  
+   只选中所有 **Armature**（可框选或按类型选），点击 **合并并重连骨架**。合并后会按上一步记录的 URDF 层级重连骨骼，骨骼名与 URDF 一致。
+
+5. **欧拉角（推荐）**  
+   选中合并后的 Armature，点击 **全部骨骼欧拉角 (XYZ)**，便于后续导出为角度/弧度而非四元数。
+
+6. **绑定网格**  
+   保持 Armature 为活动对象，点击 **将网格绑定到骨骼**。Mesh 会按名称匹配到骨骼并保持位置。
+
+7. **导出动态 CSV**  
+   - 展开 **Dynamic CSV - Joint List**，点击 **从骨架刷新关节列表**。  
+   - 勾选要导出的关节，选择每关节的旋转轴 (X/Y/Z，默认 Y)。  
+   - 选择 **导出单位**：角度 或 弧度。  
+   - 可选：勾选 **自定义帧范围** 设置起始/结束帧。  
+   - 点击 **导出动态 CSV**，选择保存路径即可。
+
+---
+
+## 骨骼层级说明
+
+- **优先**：若在「清空并保持变换」时已记录层级，则「合并并重连骨架」会**按该记录**恢复父子关系，与原始 URDF 物体层级一致。
+- **回退**：若无记录或解析失败，则按内置 `CHAIN_RULES` 命名规则推断（如四足/人形的 calf→thigh→abad/hip→base_link 等）。  
+  若 URDF 命名与规则不符，可修改 `__init__.py` 中的 `CHAIN_RULES` 以适配。
+
+---
+
+## 文件结构
+
+```
+Robot Animator Toolkit/
+  __init__.py    # 插件主逻辑（面板、算子、属性）
+  phobos/        # 内置 Phobos 子模块（URDF/SMURF 解析与导入）
+  README.md      # 本说明
+```
+
+---
+
+## 注意事项与建议
+
+- **导出前**：建议先执行「全部骨骼欧拉角 (XYZ)」，否则骨骼若为四元数模式，导出值可能不符合预期。
+- **帧范围**：使用「自定义帧范围」时，起始帧需 ≤ 结束帧，否则导出会提示错误。
+- **语言**：面板顶部可切换 **中文 / English**，仅影响界面文案。
+- **后续可扩展**：从 URDF 解析 joint limit 并在界面中做限位提示、Bake 后再导出、多轴联合导出等。
+
+安装后可在 **N 面板 → RobotTools** 中使用所有功能。
+
+---
+
+## 上传到 GitHub
+
+1. 在 GitHub 新建一个空仓库（不要勾选 Initialize README）。
+2. 在本项目目录打开终端，执行：
+
+```bash
+git init
+git add .
+git commit -m "Initial commit: Robot Animator Toolkit"
+git branch -M main
+git remote add origin https://github.com/<your-name>/<repo>.git
+git push -u origin main
+```
+
+后续更新：
+
+```bash
+git add .
+git commit -m "Update plugin"
+git push
+```

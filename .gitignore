@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Blender backup and temp
+*.blend1
+*.blend2
+*.blend@
+*.blend~
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
