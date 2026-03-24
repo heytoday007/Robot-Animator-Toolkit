@@ -1,5 +1,7 @@
 # Robot Animator Toolkit
 
+[中文](README.md) | [English](README.en.md)
+
 Blender 插件：面向 URDF 机器人的**骨架合并、网格重绑定与动态 CSV 导出**，支持从 URDF/SMURF 导入到动画数据导出的完整流程。
 
 适用于 Blender 3.3+（推荐 4.0+）。
@@ -104,3 +106,9 @@ Robot Animator Toolkit/
 - **后续可扩展**：从 URDF 解析 joint limit 并在界面中做限位提示、Bake 后再导出、多轴联合导出等。
 
 安装后可在 **N 面板 → RobotTools** 中使用所有功能。
+
+---
+
+## 致谢
+
+本插件在 URDF/SMURF 导入能力上借用了 **Phobos** 子模块（项目内 `phobos/` 目录），感谢 Phobos 项目的开源贡献。
