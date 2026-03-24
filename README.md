@@ -89,27 +89,3 @@ Robot Animator Toolkit/
 - **后续可扩展**：从 URDF 解析 joint limit 并在界面中做限位提示、Bake 后再导出、多轴联合导出等。
 
 安装后可在 **N 面板 → RobotTools** 中使用所有功能。
-
----
-
-## 上传到 GitHub
-
-1. 在 GitHub 新建一个空仓库（不要勾选 Initialize README）。
-2. 在本项目目录打开终端，执行：
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: Robot Animator Toolkit"
-git branch -M main
-git remote add origin https://github.com/<your-name>/<repo>.git
-git push -u origin main
-```
-
-后续更新：
-
-```bash
-git add .
-git commit -m "Update plugin"
-git push
-```
