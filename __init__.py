@@ -746,6 +746,46 @@ class ROBOT_OT_ToggleJointList(Operator):
 
 
 # ============== 5. CSV 导出 ==============
+def _collect_joint_export_data(context, arm_obj, robot):
+    """收集导出数据，供 CSV/NPZ 共用。"""
+    scene = context.scene
+    frame_start = scene.frame_start
+    frame_end = scene.frame_end
+    if robot.use_custom_range:
+        frame_start = robot.frame_start
+        frame_end = robot.frame_end
+    if frame_start > frame_end:
+        return None, None, None, "起始帧不能大于结束帧，请检查自定义帧范围"
+
+    items = [i for i in robot.joint_list if i.enabled and i.bone_name]
+    if not items:
+        return None, None, None, "请在关节列表中勾选要导出的关节"
+
+    axis_map = {"X": 0, "Y": 1, "Z": 2}
+    frames = list(range(frame_start, frame_end + 1))
+    header = ["frame"] + [i.bone_name for i in items]
+    rows = []
+    orig_frame = scene.frame_current
+    for f in frames:
+        scene.frame_set(f)
+        row = [f]
+        for item in items:
+            bone = arm_obj.pose.bones.get(item.bone_name)
+            if not bone:
+                row.append(0.0)
+                continue
+            rot = bone.rotation_euler
+            idx = axis_map.get(item.axis, 2)
+            if robot.export_angle_unit == "DEGREES":
+                val = round(rot[idx] * 180.0 / 3.14159265359, 6)
+            else:
+                val = round(rot[idx], 6)
+            row.append(val)
+        rows.append(row)
+    scene.frame_set(orig_frame)
+    return header, frames, rows, None
+
+
 class ROBOT_OT_ExportCSV(Operator):
     bl_idname = "robot.export_csv"
     bl_label = "Export Dynamic CSV"
@@ -764,50 +804,16 @@ class ROBOT_OT_ExportCSV(Operator):
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        scene = context.scene
-        robot = scene.robot_animator
+        robot = context.scene.robot_animator
         arm_obj = context.view_layer.objects.active
         if not arm_obj or arm_obj.type != "ARMATURE":
             self.report({"WARNING"}, "请先选中要导出的 Armature")
             return {"CANCELLED"}
 
-        frame_start = scene.frame_start
-        frame_end = scene.frame_end
-        if robot.use_custom_range:
-            frame_start = robot.frame_start
-            frame_end = robot.frame_end
-        if frame_start > frame_end:
-            self.report({"WARNING"}, "起始帧不能大于结束帧，请检查自定义帧范围")
+        header, frames, rows, err = _collect_joint_export_data(context, arm_obj, robot)
+        if err:
+            self.report({"WARNING"}, err)
             return {"CANCELLED"}
-
-        items = [i for i in robot.joint_list if i.enabled and i.bone_name]
-        if not items:
-            self.report({"WARNING"}, "请在关节列表中勾选要导出的关节")
-            return {"CANCELLED"}
-
-        # 确定每根骨骼的旋转轴（索引）
-        axis_map = {"X": 0, "Y": 1, "Z": 2}
-        header = ["frame"] + [i.bone_name for i in items]
-        rows = []
-        orig_frame = scene.frame_current
-        for f in range(frame_start, frame_end + 1):
-            scene.frame_set(f)
-            row = [f]
-            for item in items:
-                bone = arm_obj.pose.bones.get(item.bone_name)
-                if not bone:
-                    row.append(0.0)
-                    continue
-                # 取局部旋转欧拉角对应轴，按设置输出角度或弧度
-                rot = bone.rotation_euler
-                idx = axis_map.get(item.axis, 2)
-                if robot.export_angle_unit == "DEGREES":
-                    val = round(rot[idx] * 180.0 / 3.14159265359, 6)
-                else:
-                    val = round(rot[idx], 6)
-                row.append(val)
-            rows.append(row)
-        scene.frame_set(orig_frame)
 
         try:
             with open(self.filepath, "w", newline="", encoding="utf-8") as fp:
@@ -819,7 +825,63 @@ class ROBOT_OT_ExportCSV(Operator):
             return {"CANCELLED"}
 
         robot.export_path = bpy.path.relpath(self.filepath)
-        self.report({"INFO"}, "已导出: %s (%d 帧, %d 关节)" % (self.filepath, len(rows), len(items)))
+        self.report({"INFO"}, "已导出: %s (%d 帧, %d 关节)" % (self.filepath, len(frames), len(header) - 1))
+        return {"FINISHED"}
+
+
+class ROBOT_OT_ExportNPZ(Operator):
+    bl_idname = "robot.export_npz"
+    bl_label = "Export Dynamic NPZ"
+    bl_description = "按当前关节列表与帧范围导出旋转角度到 NPZ"
+
+    filepath: StringProperty(subtype="FILE_PATH")
+
+    def invoke(self, context, event):
+        robot = context.scene.robot_animator
+        if not robot.export_npz_path:
+            self.filepath = bpy.path.abspath("//dynamic_export.npz")
+        else:
+            self.filepath = bpy.path.abspath(robot.export_npz_path)
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        robot = context.scene.robot_animator
+        arm_obj = context.view_layer.objects.active
+        if not arm_obj or arm_obj.type != "ARMATURE":
+            self.report({"WARNING"}, "请先选中要导出的 Armature")
+            return {"CANCELLED"}
+
+        header, frames, rows, err = _collect_joint_export_data(context, arm_obj, robot)
+        if err:
+            self.report({"WARNING"}, err)
+            return {"CANCELLED"}
+
+        try:
+            import numpy as np
+        except Exception:
+            self.report({"ERROR"}, "导出 NPZ 需要 numpy，请在 Blender Python 环境安装 numpy")
+            return {"CANCELLED"}
+
+        try:
+            frame_values = np.asarray(frames, dtype=np.int32)
+            value_matrix = np.asarray([r[1:] for r in rows], dtype=np.float32)
+            joint_names = np.asarray(header[1:], dtype=object)
+            joint_axes = np.asarray([i.axis for i in robot.joint_list if i.enabled and i.bone_name], dtype=object)
+            np.savez(
+                self.filepath,
+                frames=frame_values,
+                joint_names=joint_names,
+                joint_axes=joint_axes,
+                values=value_matrix,
+                angle_unit=robot.export_angle_unit,
+            )
+        except Exception as e:
+            self.report({"ERROR"}, "写入 NPZ 失败: %s" % str(e))
+            return {"CANCELLED"}
+
+        robot.export_npz_path = bpy.path.relpath(self.filepath)
+        self.report({"INFO"}, "已导出 NPZ: %s (%d 帧, %d 关节)" % (self.filepath, len(frames), len(header) - 1))
         return {"FINISHED"}
 
 
@@ -885,7 +947,9 @@ class ROBOT_PT_JointListPanel(Panel):
             row.prop(robot, "frame_end", text="End")
         layout.prop(robot, "export_path", text=_tr(context, "Export Path", "导出路径"))
         layout.separator()
-        layout.operator("robot.export_csv", text=_tr(context, "Export Dynamic CSV", "导出动态 CSV"), icon="EXPORT")
+        row = layout.row(align=True)
+        row.operator("robot.export_csv", text=_tr(context, "Export Dynamic CSV", "导出动态 CSV"), icon="EXPORT")
+        row.operator("robot.export_npz", text=_tr(context, "Export Dynamic NPZ", "导出动态 NPZ"), icon="EXPORT")
 
 
 # ============== 场景属性 ==============
@@ -898,6 +962,11 @@ class RobotAnimatorSettings(PropertyGroup):
     export_path: StringProperty(
         name="Export Path",
         default="//dynamic_export.csv",
+        subtype="FILE_PATH",
+    )
+    export_npz_path: StringProperty(
+        name="Export NPZ Path",
+        default="//dynamic_export.npz",
         subtype="FILE_PATH",
     )
     language: EnumProperty(
@@ -948,6 +1017,7 @@ classes = (
     ROBOT_OT_RefreshJointList,
     ROBOT_OT_ToggleJointList,
     ROBOT_OT_ExportCSV,
+    ROBOT_OT_ExportNPZ,
     ROBOT_PT_MainPanel,
     ROBOT_PT_JointListPanel,
     RobotAnimatorSettings,

@@ -2,7 +2,7 @@
 
 [中文](README.md) | [English](README.en.md)
 
-A Blender add-on for URDF robots: **armature merge/relink, mesh rebinding, and dynamic CSV export**, with an end-to-end workflow from URDF/SMURF import to animation data export.
+A Blender add-on for URDF robots: **armature merge/relink, mesh rebinding, and dynamic CSV/NPZ export**, with an end-to-end workflow from URDF/SMURF import to animation data export.
 
 Supports Blender 3.3+ (4.2 recommended).
 
@@ -10,7 +10,7 @@ Supports Blender 3.3+ (4.2 recommended).
 
 1. **Import model**: Click **Import URDF/SMURF (Phobos)** and choose your robot file (`.urdf` / `.smurf` / `.xacro`, etc.).
 2. **One-click process**: Select at least one Armature, then click **One-Click: Prepare → Bind (4 steps)**.
-3. **Export data**: In **Dynamic CSV - Joint List**, refresh joints and configure options, then click **Export Dynamic CSV**.
+3. **Export data**: In **Dynamic CSV - Joint List**, refresh joints and configure options, then click **Export Dynamic CSV** or **Export Dynamic NPZ**.
 
 ## UI Screenshot
 
@@ -30,7 +30,7 @@ Supports Blender 3.3+ (4.2 recommended).
 | **Merge & Relink Armature** | Merges selected Armatures into one and rebuilds hierarchy (prefers recorded URDF hierarchy). |
 | **Toggle Euler / Quaternion** | One-click switch for all bones' rotation mode (Euler XYZ ↔ Quaternion). |
 | **Bind Meshes to Bones** | Auto-binds meshes to matched bones by name while preserving world-space transforms. |
-| **Export Dynamic CSV** | Exports per-frame joint rotation values to CSV with angle unit selection (degrees/radians). |
+| **Export Dynamic CSV / NPZ** | Exports per-frame joint rotation values to CSV or NPZ with angle unit selection (degrees/radians). |
 
 **Joint list subpanel (Dynamic CSV - Joint List)**: refresh joints from armature, all/none toggle, per-joint axis (X/Y/Z), custom frame range, export unit, and export path.
 
@@ -61,8 +61,8 @@ Dependency notes: URDF import relies on built-in Phobos. For Blender 4.2, STL im
 4. **Rotation mode switch (optional)**  
    Click **Toggle Euler / Quaternion** on the merged armature as needed.
 
-5. **Export Dynamic CSV**  
-   Open **Dynamic CSV - Joint List**, refresh joint list, configure joints/axes/range/unit, then export.
+5. **Export Dynamic CSV / NPZ**  
+   Open **Dynamic CSV - Joint List**, refresh joint list, configure joints/axes/range/unit, then export to CSV or NPZ.
 
 ---
 
